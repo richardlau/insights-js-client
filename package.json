@@ -1,0 +1,23 @@
+{
+  "name": "insights-js-client",
+  "version": "0.1.0",
+  "description": "Node.js client for sending data to Red Hat Insights.",
+  "private": true,
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "preversion": "./scripts/syncversion.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RedHatInsights/insights-js-client.git"
+  },
+  "author": "Red Hat",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/RedHatInsights/insights-js-client/issues"
+  },
+  "homepage": "https://github.com/RedHatInsights/insights-js-client#readme"
+}

@@ -1,0 +1,13 @@
+diff --git a/lib/internal/process/pre_execution.js b/lib/internal/process/pre_execution.js
+index 1f4a08515b..a0e26d73e6 100644
+--- a/lib/internal/process/pre_execution.js
++++ b/lib/internal/process/pre_execution.js
+@@ -122,6 +122,8 @@ function prepareExecution(options) {
+
+     // TODO(joyeecheung): do this for worker threads as well.
+     require('internal/v8/startup_snapshot').runDeserializeCallbacks();
++
++    require('internal/redhat/insights').initializeInsights();
+   } else {
+     assert(!internalBinding('worker').isMainThread);
+     // The setup should be called in LOAD_SCRIPT message handler.
