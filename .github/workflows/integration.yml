@@ -1,0 +1,49 @@
+name: Insert Insights client in Node.js rebuild
+
+on:
+  workflow_dispatch:
+    inputs:
+      centos_stream_version:
+        description: 'CentOS Stream versions to build'
+        options:
+        - '"stream-9","stream-8"'
+        - '"stream-9"'
+        - '"stream-8"'
+        type: choice
+        required: true
+      nodejs_version:
+        description: 'Node.js versions to build'
+        options:
+        - '"20","18"'
+        - '"20"'
+        - '"18"'
+        type: choice
+        required: true
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-rpms:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        centos_stream_version: ${{ fromJSON(format('[{0}]', inputs.centos_stream_version || '"stream-9","stream-8"')) }}
+        nodejs_version: ${{ fromJSON(format('[{0}]', inputs.nodejs_version || '"20","18"')) }}
+    steps:
+      - run: |
+          echo centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}}
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: build container nodejs-insights-client-centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}}
+        run: docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg NODEJS_VERSION=${{ matrix.nodejs_version}} --tag nodejs-insights-client-centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}} container/centos-${{ matrix.centos_stream_version}}
+      - name: rebuild nodejs RPMs
+        run: |
+          mkdir rpmbuild
+          docker run --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z nodejs-insights-client-centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: rpms
+          path: rpmbuild/**/*.rpm
