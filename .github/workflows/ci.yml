@@ -1,8 +1,16 @@
-name: Run unit tests
+name: Continuous Integration
 
 on:
   workflow_dispatch:
     inputs:
+      centos_stream_version:
+        description: 'CentOS Stream versions to build'
+        options:
+        - '"stream9","stream8"'
+        - '"stream9"'
+        - '"stream8"'
+        type: choice
+        required: true
       nodejs_version:
         description: 'Node.js versions to build'
         options:
@@ -20,7 +28,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-ci:
+  run-unit:
+    name: Run unit tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,3 +43,16 @@ jobs:
         with:
           node-version: ${{ matrix.nodejs_version }}
       - run: npm run test
+  run-integration:
+    name: Run integration tests
+    needs: run-unit
+    strategy:
+      fail-fast: false
+      matrix:
+        centos_stream_version: ${{ fromJSON(format('[{0}]', inputs.centos_stream_version || '"stream9","stream8"')) }}
+        nodejs_version: ${{ fromJSON(format('[{0}]', inputs.nodejs_version || '"20","18"')) }}
+    uses: ./.github/workflows/integration.yml
+    with:
+      centos_stream_version: ${{ matrix.centos_stream_version }}
+      nodejs_version: ${{ matrix.nodejs_version }}
+    secrets: inherit

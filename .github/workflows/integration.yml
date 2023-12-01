@@ -1,53 +1,56 @@
 name: Insert Insights client in Node.js rebuild
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       centos_stream_version:
         description: 'CentOS Stream versions to build'
-        options:
-        - '"stream-9","stream-8"'
-        - '"stream-9"'
-        - '"stream-8"'
-        type: choice
+        default: "stream9"
+        type: string
         required: true
       nodejs_version:
         description: 'Node.js versions to build'
-        options:
-        - '"20","18"'
-        - '"20"'
-        - '"18"'
-        type: choice
+        default: "20"
+        type: string
         required: true
-  pull_request:
-  push:
-    branches: [master]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 
 jobs:
   build-rpms:
+    name: Building RPMs for Node.js ${{ inputs.nodejs_version }} on centos-${{ inputs.centos_stream_version }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        centos_stream_version: ${{ fromJSON(format('[{0}]', inputs.centos_stream_version || '"stream-9","stream-8"')) }}
-        nodejs_version: ${{ fromJSON(format('[{0}]', inputs.nodejs_version || '"20","18"')) }}
     steps:
-      - run: |
-          echo centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}}
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: build container nodejs-insights-client-centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}}
-        run: docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg NODEJS_VERSION=${{ matrix.nodejs_version}} --tag nodejs-insights-client-centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}} container/centos-${{ matrix.centos_stream_version}}
-      - name: rebuild nodejs RPMs
+      - name: Build container nodejs-insights-client-centos-${{ inputs.centos_stream_version }}:nodejs-${{ inputs.nodejs_version}}
+        run: docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg NODEJS_VERSION=${{ inputs.nodejs_version}} --tag nodejs-insights-client-centos-${{ inputs.centos_stream_version }}:nodejs-${{ inputs.nodejs_version}} container/centos-${{ inputs.centos_stream_version}}
+      - name: Rebuild nodejs RPMs
         run: |
           mkdir rpmbuild
-          docker run --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z nodejs-insights-client-centos-${{ matrix.centos_stream_version }}:nodejs-${{ matrix.nodejs_version}} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
+          docker run --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z nodejs-insights-client-centos-${{ inputs.centos_stream_version }}:nodejs-${{ inputs.nodejs_version}} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
       - uses: actions/upload-artifact@v3
         with:
-          name: rpms
-          path: rpmbuild/**/*.rpm
+          name: rpms-nodejs${{ inputs.nodejs_version }}-centos-${{ inputs.centos_stream_version }}
+          path: |
+            rpmbuild/RPMS/**/nodejs-${{ inputs.nodejs_version }}.*.rpm
+            rpmbuild/RPMS/**/nodejs-full-i18n-${{ inputs.nodejs_version }}.*.rpm
+            rpmbuild/RPMS/**/npm-*${{ inputs.nodejs_version }}.*.rpm
+          retention-days: 7
+  test-rpms:
+    name: Testing RPMs for Node.js ${{ inputs.nodejs_version }} on centos-${{ inputs.centos_stream_version }}
+    needs: build-rpms
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/centos/centos:${{ inputs.centos_stream_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v3
+        with:
+          name: rpms-nodejs${{ inputs.nodejs_version }}-centos-${{ inputs.centos_stream_version }}
+          path: rpmbuild/RPMS/
+      - name: Install nodejs RPMs
+        run: dnf install -y rpmbuild/RPMS/**/*.rpm
+      - name: Run integration tests
+        run: npm run test:integration
