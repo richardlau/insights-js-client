@@ -6,9 +6,9 @@ on:
       centos_stream_version:
         description: 'CentOS Stream versions to build'
         options:
-        - '"stream9","stream8"'
-        - '"stream9"'
-        - '"stream8"'
+        - '"9","8"'
+        - '"9"'
+        - '"8"'
         type: choice
         required: true
       nodejs_version:
@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        centos_stream_version: ${{ fromJSON(format('[{0}]', inputs.centos_stream_version || '"stream9","stream8"')) }}
+        centos_stream_version: ${{ fromJSON(format('[{0}]', inputs.centos_stream_version || '"9","8"')) }}
         nodejs_version: ${{ fromJSON(format('[{0}]', inputs.nodejs_version || '"20","18"')) }}
     uses: ./.github/workflows/integration.yml
     with:

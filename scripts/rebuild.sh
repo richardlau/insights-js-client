@@ -29,4 +29,7 @@ patch_file=${source_root}/patches/v${major}.x.patch
 "${script_root}/patchspec.sh"
 
 # Rebuild the RPM and SRPM.
-rpmbuild -ba --with=bundled "${spec_file}"
+# Decrease debuginfo verbosity to reduce memory consumption during final
+# library linking
+compiler_flags=$(rpm --showrc | grep ':\s__global_compiler_flags' | awk '{ gsub("-g ","-g1 ",$0); $1=""; $0=$0; $1=$1; print $0 }')
+rpmbuild -ba --with=bundled --define "${compiler_flags}" "${spec_file}"

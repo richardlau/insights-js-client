@@ -4,51 +4,51 @@ on:
   workflow_call:
     inputs:
       centos_stream_version:
-        description: 'CentOS Stream versions to build'
-        default: "stream9"
+        description: 'CentOS Stream version to build'
+        default: "9"
         type: string
         required: true
       nodejs_version:
-        description: 'Node.js versions to build'
+        description: 'Node.js version to build'
         default: "20"
         type: string
         required: true
 
 jobs:
   build-rpms:
-    name: Building RPMs for Node.js ${{ inputs.nodejs_version }} on centos-${{ inputs.centos_stream_version }}
+    name: Building RPMs for Node.js ${{ inputs.nodejs_version }} on centos-stream${{ inputs.centos_stream_version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Build container nodejs-insights-client-centos-${{ inputs.centos_stream_version }}:nodejs-${{ inputs.nodejs_version}}
-        run: docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg NODEJS_VERSION=${{ inputs.nodejs_version}} --tag nodejs-insights-client-centos-${{ inputs.centos_stream_version }}:nodejs-${{ inputs.nodejs_version}} container/centos-${{ inputs.centos_stream_version}}
+      - name: Build container insights-js-client-builder:nodejs-${{ inputs.nodejs_version}}.el${{ inputs.centos_stream_version }}
+        run: ./scripts/buildcontainer.sh "${{ inputs.centos_stream_version }}" "${{ inputs.nodejs_version }}"
       - name: Rebuild nodejs RPMs
         run: |
           mkdir rpmbuild
-          docker run --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z nodejs-insights-client-centos-${{ inputs.centos_stream_version }}:nodejs-${{ inputs.nodejs_version}} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
+          docker run --rm --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z insights-js-client-builder:nodejs-${{ inputs.nodejs_version}}.el${{ inputs.centos_stream_version }} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
       - uses: actions/upload-artifact@v3
         with:
-          name: rpms-nodejs${{ inputs.nodejs_version }}-centos-${{ inputs.centos_stream_version }}
+          name: rpms-nodejs${{ inputs.nodejs_version }}.el${{ inputs.centos_stream_version }}
           path: |
             rpmbuild/RPMS/**/nodejs-${{ inputs.nodejs_version }}.*.rpm
             rpmbuild/RPMS/**/nodejs-full-i18n-${{ inputs.nodejs_version }}.*.rpm
             rpmbuild/RPMS/**/npm-*${{ inputs.nodejs_version }}.*.rpm
           retention-days: 7
   test-rpms:
-    name: Testing RPMs for Node.js ${{ inputs.nodejs_version }} on centos-${{ inputs.centos_stream_version }}
+    name: Testing RPMs for Node.js ${{ inputs.nodejs_version }} on centos-stream${{ inputs.centos_stream_version }}
     needs: build-rpms
     runs-on: ubuntu-latest
     container:
-      image: quay.io/centos/centos:${{ inputs.centos_stream_version }}
+      image: quay.io/centos/centos:stream${{ inputs.centos_stream_version }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: actions/download-artifact@v3
         with:
-          name: rpms-nodejs${{ inputs.nodejs_version }}-centos-${{ inputs.centos_stream_version }}
+          name: rpms-nodejs${{ inputs.nodejs_version }}.el${{ inputs.centos_stream_version }}
           path: rpmbuild/RPMS/
       - name: Install nodejs RPMs
         run: dnf install -y rpmbuild/RPMS/**/*.rpm
