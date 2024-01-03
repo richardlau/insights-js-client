@@ -54,6 +54,10 @@ test('file is written', async () => {
   assert.strictEqual(data.nodejsVersion, process.version);
   assert.strictEqual(data.arch, process.arch);
   utils.validate(data);
+  assert(data.startTime <= data.reportTime);
+  // Timestamps should be time in milliseconds since UNIX epoch.
+  assert.strictEqual(new Date(data.startTime).valueOf(), data.startTime);
+  assert.strictEqual(new Date(data.reportTime).valueOf(), data.reportTime);
 });
 test('upload dir cannot be created', async () => {
   const opts = {
