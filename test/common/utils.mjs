@@ -8,6 +8,7 @@ const expectedTypes = new Map([
   [ 'id', 'string' ],
   [ 'nodejsVersion', 'string' ],
   [ 'processId', 'number' ],
+  [ 'startTime', 'number' ],
   [ 'rhInsightsVersion', 'string' ],
 ]);
 
