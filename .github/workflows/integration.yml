@@ -22,12 +22,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Use ccache
+        uses: hendrikmuhs/ccache-action@2a51777f6f64b7b7bea213601acba8f5f4fdbe03  # v1.2.11
+        with:
+          key: centos-stream-${{ inputs.centos_stream_version }}-nodejs-${{ inputs.nodejs_version }}-${{ github.base_ref || github.ref_name }}
+          restore-keys: |
+            centos-stream-${{ inputs.centos_stream_version }}-nodejs-${{ inputs.nodejs_version }}-${{ github.base_ref || github.ref_name }}
+            centos-stream-${{ inputs.centos_stream_version }}-nodejs-${{ inputs.nodejs_version }}-
+          save: ${{ github.event.number == '' }}
       - name: Build container insights-js-client-builder:nodejs-${{ inputs.nodejs_version}}.el${{ inputs.centos_stream_version }}
         run: ./scripts/buildcontainer.sh "${{ inputs.centos_stream_version }}" "${{ inputs.nodejs_version }}"
       - name: Rebuild nodejs RPMs
         run: |
           mkdir rpmbuild
-          docker run --rm --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z insights-js-client-builder:nodejs-${{ inputs.nodejs_version}}.el${{ inputs.centos_stream_version }} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
+          docker run --rm --user $(id -u) -v $(pwd):/insights-js-client:Z -v $(pwd)/rpmbuild:/home/mockbuild/rpmbuild:Z -v $(ccache -k cache_dir):/home/mockbuild/.cache/ccache:Z insights-js-client-builder:nodejs-${{ inputs.nodejs_version}}.el${{ inputs.centos_stream_version }} /insights-js-client/scripts/rebuild.sh "/nodejs*.src.rpm"
       - uses: actions/upload-artifact@v3
         with:
           name: rpms-nodejs${{ inputs.nodejs_version }}.el${{ inputs.centos_stream_version }}

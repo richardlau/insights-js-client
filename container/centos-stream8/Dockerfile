@@ -22,11 +22,16 @@ FROM common
 ARG UID=1000
 ARG GID=1000
 ARG NODEJS_VERSION=20
+ARG CCACHE_COMPRESSION=true
 COPY --from=builder /nodejs-*.src.rpm /
 RUN groupadd -g $GID mock && \
   useradd -d /home/mockbuild -m -g $GID -u $UID -s /bin/bash mockbuild && \
-  dnf install -y dumb-init && \
+  dnf install -y ccache dumb-init && \
   dnf module enable -y nodejs:$NODEJS_VERSION && \
   dnf builddep -y /nodejs*.src.rpm && \
   dnf clean -y all
+ENV PATH "/usr/lib64/ccache:$PATH"
+USER mockbuild
+RUN ccache --set-config=cache_dir=/home/mockbuild/.cache/ccache && \
+  ccache --set-config=compression=$CCACHE_COMPRESSION
 ENTRYPOINT [ "/usr/bin/dumb-init", "--" ]
